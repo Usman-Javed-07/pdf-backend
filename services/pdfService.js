@@ -1,4 +1,4 @@
-// services/pdfService.js
+
 import fs from "fs/promises";
 import { readFileSync, createReadStream, unlinkSync } from "fs";
 import { PDFDocument } from "pdf-lib";
@@ -10,11 +10,10 @@ import { promisify } from "util";
 const execP = promisify(exec);
 
 async function cleanup(filepath) {
-  try { await fs.unlink(filepath); } catch (e) { /* ignore */ }
+  try { await fs.unlink(filepath); } catch (e) { }
 }
 
 export async function mergePdfs(filePaths) {
-  // Accepts array of full file paths, returns Buffer of merged PDF
   const mergedPdf = await PDFDocument.create();
   for (const p of filePaths) {
     const bytes = await fs.readFile(p);
@@ -27,7 +26,6 @@ export async function mergePdfs(filePaths) {
 }
 
 export async function splitPdfRange(filePath, from, to) {
-  // from and to are 1-based inclusive
   const data = await fs.readFile(filePath);
   const src = await PDFDocument.load(data);
   const total = src.getPageCount();
@@ -46,7 +44,7 @@ export async function splitPdfRange(filePath, from, to) {
 export async function pdfToText(filePath) {
   const dataBuffer = readFileSync(filePath);
   const data = await pdfParse(dataBuffer);
-  return data.text; // plain text
+  return data.text;
 }
 
 async function checkSoffice() {
@@ -57,7 +55,6 @@ async function checkSoffice() {
     throw new Error("LibreOffice (soffice) not found. Install it server-side.");
   }
 }
-
 
 export async function pdfToDocx(inputPath, outputDir = TMP_DIR) {
   await checkSoffice();

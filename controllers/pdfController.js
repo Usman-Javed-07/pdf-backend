@@ -1,16 +1,14 @@
-// controllers/pdfController.js
+
 import { mergePdfs, splitPdfRange, pdfToText, pdfToDocx } from "../services/pdfService.js";
 import fs from "fs/promises";
 import { createReadStream } from "fs";
 
 export async function mergeHandler(req, res) {
-  // Accepts multiple uploaded files (field name: files)
   const files = req.files;
   if (!files || files.length < 2) return res.status(400).json({ error: "Upload at least 2 PDFs" });
   try {
     const paths = files.map(f => f.path);
     const buffer = await mergePdfs(paths);
-    // cleanup uploads
     for (const p of paths) await fs.unlink(p).catch(()=>{});
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", "attachment; filename=merged.pdf");
@@ -21,7 +19,6 @@ export async function mergeHandler(req, res) {
 }
 
 export async function splitHandler(req, res) {
-  // files[0] required; query: from, to (1-based)
   const file = req.file;
   if (!file) return res.status(400).json({ error: "Upload a PDF file" });
   const from = parseInt(req.query.from || "1", 10);
@@ -53,7 +50,6 @@ export async function pdfToTxtHandler(req, res) {
 }
 
 export async function pdfToDocxHandler(req, res) {
-  // Accepts uploaded pdf -> returns docx
   const file = req.file;
   if (!file) return res.status(400).json({ error: "Upload a PDF file" });
   try {
