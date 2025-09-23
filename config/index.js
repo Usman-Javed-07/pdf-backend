@@ -1,4 +1,3 @@
-// config/index.js
 import path from "path";
 import os from "os";
 
