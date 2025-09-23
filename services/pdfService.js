@@ -6,6 +6,7 @@ import pdfParse from "pdf-parse";
 import { exec } from "child_process";
 import { TMP_DIR } from "../config/index.js";
 import { promisify } from "util";
+
 const execP = promisify(exec);
 
 async function cleanup(filepath) {
@@ -57,15 +58,6 @@ async function checkSoffice() {
   }
 }
 
-export async function docxToPdf(inputPath, outputDir = TMP_DIR) {
-  await checkSoffice();
-  // LibreOffice converts in-place to outputDir
-  const cmd = `soffice --headless --convert-to pdf --outdir ${outputDir} ${inputPath}`;
-  await execP(cmd);
-  // produced filename: same base name with .pdf
-  const outPath = `${outputDir}/${inputPath.split('/').pop().replace(/\.[^/.]+$/, "")}.pdf`;
-  return outPath;
-}
 
 export async function pdfToDocx(inputPath, outputDir = TMP_DIR) {
   await checkSoffice();

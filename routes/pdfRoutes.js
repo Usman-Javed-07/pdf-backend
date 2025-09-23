@@ -5,7 +5,6 @@ import {
   mergeHandler,
   splitHandler,
   pdfToTxtHandler,
-  docxToPdfHandler,
   pdfToDocxHandler
 } from "../controllers/pdfController.js";
 
@@ -19,9 +18,6 @@ router.post("/split", upload.single("file"), splitHandler);
 
 // PDF -> TXT
 router.post("/pdf-to-txt", upload.single("file"), pdfToTxtHandler);
-
-// DOCX -> PDF
-router.post("/docx-to-pdf", upload.single("file"), docxToPdfHandler);
 
 // PDF -> DOCX
 router.post("/pdf-to-docx", upload.single("file"), pdfToDocxHandler);
