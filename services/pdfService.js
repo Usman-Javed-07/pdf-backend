@@ -1,4 +1,3 @@
-
 import fs from "fs/promises";
 import { readFileSync, createReadStream, unlinkSync } from "fs";
 import { PDFDocument } from "pdf-lib";
@@ -10,7 +9,9 @@ import { promisify } from "util";
 const execP = promisify(exec);
 
 async function cleanup(filepath) {
-  try { await fs.unlink(filepath); } catch (e) { }
+  try {
+    await fs.unlink(filepath);
+  } catch (e) {}
 }
 
 export async function mergePdfs(filePaths) {
@@ -37,7 +38,7 @@ export async function splitPdfRange(filePath, from, to) {
   const indices = [];
   for (let i = from - 1; i <= to - 1; i++) indices.push(i);
   const pages = await outPdf.copyPages(src, indices);
-  pages.forEach(p => outPdf.addPage(p));
+  pages.forEach((p) => outPdf.addPage(p));
   return Buffer.from(await outPdf.save());
 }
 
@@ -60,6 +61,9 @@ export async function pdfToDocx(inputPath, outputDir = TMP_DIR) {
   await checkSoffice();
   const cmd = `soffice --headless --convert-to docx --outdir ${outputDir} ${inputPath}`;
   await execP(cmd);
-  const outPath = `${outputDir}/${inputPath.split('/').pop().replace(/\.[^/.]+$/, "")}.docx`;
+  const outPath = `${outputDir}/${inputPath
+    .split("/")
+    .pop()
+    .replace(/\.[^/.]+$/, "")}.docx`;
   return outPath;
 }
