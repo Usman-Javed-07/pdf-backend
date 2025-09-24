@@ -1,4 +1,3 @@
-// services/pdfService.js
 import fs from "fs/promises";
 import { readFileSync, createReadStream } from "fs";
 import { PDFDocument } from "pdf-lib";
@@ -7,12 +6,10 @@ import { execFile } from "child_process";
 import path from "path";
 import os from "os";
 
-// Prefer soffice.com on Windows (more stable for headless)
 const DEFAULT_SOFFICE =
   process.platform === "win32" ? "soffice.com" : "soffice";
 const SOFFICE_PATH = process.env.SOFFICE_PATH || DEFAULT_SOFFICE;
 
-// Use a short, space-free temp base on Windows to avoid weird path issues
 const DEFAULT_TMP =
   process.platform === "win32"
     ? "C:\\pdf-tools"
@@ -20,7 +17,6 @@ const DEFAULT_TMP =
 
 const TMP_BASE_DIR = process.env.TMP_DIR || DEFAULT_TMP;
 
-// ------------------ small helpers ------------------
 async function ensureDir(dir) {
   await fs.mkdir(dir, { recursive: true });
 }
@@ -41,7 +37,7 @@ function safeBaseName(name) {
 }
 function toFileUrl(p) {
   let full = path.resolve(p).replace(/\\/g, "/");
-  if (!full.startsWith("/")) full = "/" + full; // Windows drive letter
+  if (!full.startsWith("/")) full = "/" + full;
   return `file://${full}`;
 }
 
@@ -75,8 +71,6 @@ async function assertSofficeAvailable() {
     );
   }
 }
-
-// ------------------ your existing helpers ------------------
 export async function mergePdfs(filePaths) {
   const mergedPdf = await PDFDocument.create();
   for (const p of filePaths) {
@@ -111,12 +105,10 @@ export async function pdfToText(filePath) {
   return data.text;
 }
 
-// ------------------ LibreOffice strategies ------------------
 async function loRun(args) {
   return execFileP(SOFFICE_PATH, args);
 }
 
-// Strategy 1: force Writer import and export DOCX
 async function loPdfToDocx_writerImport(safePdf, workDir, profileDir) {
   const expected = path.join(workDir, "out.docx");
   const args = [
@@ -134,7 +126,6 @@ async function loPdfToDocx_writerImport(safePdf, workDir, profileDir) {
     safePdf,
   ];
   const out = await loRun(args);
-  // LO usually names output after input; rename if needed
   const files = await fs.readdir(workDir);
   const produced = files.find((f) => f.toLowerCase().endsWith(".docx"));
   if (!produced) {
@@ -149,12 +140,10 @@ async function loPdfToDocx_writerImport(safePdf, workDir, profileDir) {
   return expected;
 }
 
-// Strategy 2: PDF -> ODT (writer8), then ODT -> DOCX
 async function loPdfToDocx_viaOdt(safePdf, workDir, profileDir) {
   const odt = path.join(workDir, "mid.odt");
   const docx = path.join(workDir, "out.docx");
 
-  // Step A: to ODT
   {
     const args = [
       `-env:UserInstallation=${toFileUrl(profileDir)}`,
@@ -184,7 +173,6 @@ async function loPdfToDocx_viaOdt(safePdf, workDir, profileDir) {
     if (producedPath !== odt) await fs.rename(producedPath, odt);
   }
 
-  // Step B: ODT -> DOCX
   {
     const args = [
       `-env:UserInstallation=${toFileUrl(profileDir)}`,
@@ -216,26 +204,19 @@ async function loPdfToDocx_viaOdt(safePdf, workDir, profileDir) {
   return docx;
 }
 
-// ------------------ Microsoft Word COM (Windows) ------------------
 async function mswordPdfToDocx(inputPdf, outDocx) {
   if (process.platform !== "win32") {
     throw new Error("MS Word COM fallback only available on Windows.");
   }
-
-  // Lazy import to avoid errors on non-Windows
   let winax;
   try {
-    // eslint-disable-next-line n/no-unsupported-features/es-syntax
     winax = await import("winax");
   } catch (e) {
     throw new Error("winax module not installed. Run: npm i winax");
   }
 
   const { ActiveXObject } = winax;
-  // Word constants
-  const wdFormatXMLDocument = 12; // .docx
-
-  // Use sync COM calls wrapped in a Promise
+  const wdFormatXMLDocument = 12;
   return new Promise((resolve, reject) => {
     try {
       const word = new ActiveXObject("Word.Application");
@@ -243,14 +224,8 @@ async function mswordPdfToDocx(inputPdf, outDocx) {
       word.DisplayAlerts = 0;
 
       const docs = word.Documents;
-      // Open PDF directly; Word will convert to editable
-      const doc = docs.Open(
-        inputPdf,
-        false /*ConfirmConversions*/,
-        true /*ReadOnly*/
-      );
+      const doc = docs.Open(inputPdf, false, true);
 
-      // Ensure target dir exists
       fs.mkdir(path.dirname(outDocx), { recursive: true })
         .then(() => {
           doc.SaveAs2(outDocx, wdFormatXMLDocument);
@@ -273,11 +248,9 @@ async function mswordPdfToDocx(inputPdf, outDocx) {
   });
 }
 
-// ------------------ Main: PDF → DOCX with fallbacks ------------------
 export async function pdfToDocx(inputPath, outRoot = TMP_BASE_DIR) {
   await ensureDir(outRoot);
 
-  // Guard input ext (router should also enforce mimetype/extension)
   const ext = path.extname(inputPath || "").toLowerCase();
   if (ext !== ".pdf") {
     throw new Error(
@@ -292,17 +265,13 @@ export async function pdfToDocx(inputPath, outRoot = TMP_BASE_DIR) {
   await ensureDir(profileDir);
   await ensureDir(workDir);
 
-  // Copy to a sanitized name without spaces/paren
   const safePdf = path.join(workDir, "input.pdf");
   await fs.copyFile(inputPath, safePdf);
 
   const finalOut = path.join(outRoot, `${safeBaseName(inputPath)}.docx`);
-  // Remove if exists
   await fs.rm(finalOut, { force: true }).catch(() => {});
 
   let lastErr = null;
-
-  // Try LibreOffice only if available
   let loAvailable = true;
   try {
     await assertSofficeAvailable();
@@ -312,7 +281,6 @@ export async function pdfToDocx(inputPath, outRoot = TMP_BASE_DIR) {
   }
 
   if (loAvailable) {
-    // Strategy 1: writer import -> docx
     try {
       const produced = await loPdfToDocx_writerImport(
         safePdf,
@@ -324,10 +292,8 @@ export async function pdfToDocx(inputPath, outRoot = TMP_BASE_DIR) {
       return finalOut;
     } catch (e1) {
       lastErr = e1;
-      // continue
     }
 
-    // Strategy 2: via ODT
     try {
       const produced = await loPdfToDocx_viaOdt(safePdf, workDir, profileDir);
       await fs.rename(produced, finalOut);
@@ -335,11 +301,9 @@ export async function pdfToDocx(inputPath, outRoot = TMP_BASE_DIR) {
       return finalOut;
     } catch (e2) {
       lastErr = e2;
-      // fall through
     }
   }
 
-  // Strategy 3: MS Word COM fallback (Windows only)
   if (process.platform === "win32") {
     try {
       await mswordPdfToDocx(safePdf, finalOut);
@@ -350,7 +314,6 @@ export async function pdfToDocx(inputPath, outRoot = TMP_BASE_DIR) {
     }
   }
 
-  // Nothing worked — include the last error message(s)
   await fs.rm(runDir, { recursive: true, force: true }).catch(() => {});
   throw new Error(
     `All converters failed.\nLast error:\n${
@@ -359,7 +322,6 @@ export async function pdfToDocx(inputPath, outRoot = TMP_BASE_DIR) {
   );
 }
 
-// ------------------ Express handler ------------------
 export async function pdfToDocxHandler(req, res) {
   const file = req.file;
   if (!file)
@@ -384,7 +346,6 @@ export async function pdfToDocxHandler(req, res) {
 
     const cleanupAll = async () => {
       await fs.unlink(file.path).catch(() => {});
-      // remove the finalized output we just streamed
       await fs.unlink(outPath).catch(() => {});
     };
     stream.on("close", cleanupAll);

@@ -15,7 +15,6 @@ export async function mergeHandler(req, res) {
   if (!files || files.length < 2) {
     return res.status(400).json({ error: "Upload at least 2 PDFs" });
   }
-
   try {
     const paths = files.map((f) => f.path);
     const buffer = await mergePdfs(paths);
@@ -123,7 +122,6 @@ export async function pdfToDocxHandler(req, res) {
 }
 
 export async function ocrImageToTextHandler(req, res) {
-  // Accept either single or multiple uploads
   const uploaded = [];
   if (req.file) uploaded.push(req.file);
   if (req.files && req.files.length) uploaded.push(...req.files);
@@ -132,30 +130,30 @@ export async function ocrImageToTextHandler(req, res) {
     return res.status(400).json({ error: "Upload at least one image file" });
   }
 
-  // Prepare zip stream
   res.setHeader("Content-Type", "application/zip");
   res.setHeader("Content-Disposition", "attachment; filename=ocr_output.zip");
   const archive = archiver("zip", { zlib: { level: 9 } });
-  archive.on("error", (err) => { throw err; });
+  archive.on("error", (err) => {
+    throw err;
+  });
   archive.pipe(res);
 
   try {
     for (const f of uploaded) {
-      // Run OCR
-      const { data: { text } } = await Tesseract.recognize(f.path, "eng");
-
-      // Name the output text file after the image
-      const base = path.basename(f.originalname || f.filename || "image", path.extname(f.originalname || f.filename || ""));
+      const {
+        data: { text },
+      } = await Tesseract.recognize(f.path, "eng");
+      const base = path.basename(
+        f.originalname || f.filename || "image",
+        path.extname(f.originalname || f.filename || "")
+      );
       archive.append(text || "", { name: `${base || "image"}.txt` });
-
-      // Clean up the uploaded file
       await fs.unlink(f.path).catch(() => {});
     }
 
     await archive.finalize();
   } catch (err) {
-    // Best-effort cleanup
-    await Promise.all(uploaded.map(u => fs.unlink(u.path).catch(() => {})));
+    await Promise.all(uploaded.map((u) => fs.unlink(u.path).catch(() => {})));
     return res.status(500).json({ error: err.message || "OCR failed" });
   }
 }

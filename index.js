@@ -5,12 +5,10 @@ import fs from "fs";
 import cors from "cors";
 import dotenv from "dotenv";
 
-import { ocrImageToTextHandler } from "./controllers/pdfController.js";
-
 const app = express();
 dotenv.config();
 app.use(express.json());
-app.use(cors({ origin: "http://localhost:5173" })); 
+app.use(cors({ origin: "http://localhost:5173" }));
 
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
 
