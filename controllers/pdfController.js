@@ -7,6 +7,8 @@ import {
 import fs from "fs/promises";
 import { createReadStream } from "fs";
 import archiver from "archiver";
+import Tesseract from "tesseract.js";
+import path from "path";
 
 export async function mergeHandler(req, res) {
   const files = req.files;
@@ -117,5 +119,43 @@ export async function pdfToDocxHandler(req, res) {
   } catch (err) {
     await fs.unlink(file.path).catch(() => {});
     return res.status(500).json({ error: err.message });
+  }
+}
+
+export async function ocrImageToTextHandler(req, res) {
+  // Accept either single or multiple uploads
+  const uploaded = [];
+  if (req.file) uploaded.push(req.file);
+  if (req.files && req.files.length) uploaded.push(...req.files);
+
+  if (!uploaded.length) {
+    return res.status(400).json({ error: "Upload at least one image file" });
+  }
+
+  // Prepare zip stream
+  res.setHeader("Content-Type", "application/zip");
+  res.setHeader("Content-Disposition", "attachment; filename=ocr_output.zip");
+  const archive = archiver("zip", { zlib: { level: 9 } });
+  archive.on("error", (err) => { throw err; });
+  archive.pipe(res);
+
+  try {
+    for (const f of uploaded) {
+      // Run OCR
+      const { data: { text } } = await Tesseract.recognize(f.path, "eng");
+
+      // Name the output text file after the image
+      const base = path.basename(f.originalname || f.filename || "image", path.extname(f.originalname || f.filename || ""));
+      archive.append(text || "", { name: `${base || "image"}.txt` });
+
+      // Clean up the uploaded file
+      await fs.unlink(f.path).catch(() => {});
+    }
+
+    await archive.finalize();
+  } catch (err) {
+    // Best-effort cleanup
+    await Promise.all(uploaded.map(u => fs.unlink(u.path).catch(() => {})));
+    return res.status(500).json({ error: err.message || "OCR failed" });
   }
 }

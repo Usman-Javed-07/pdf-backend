@@ -5,6 +5,8 @@ import fs from "fs";
 import cors from "cors";
 import dotenv from "dotenv";
 
+import { ocrImageToTextHandler } from "./controllers/pdfController.js";
+
 const app = express();
 dotenv.config();
 app.use(express.json());

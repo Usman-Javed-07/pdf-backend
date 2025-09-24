@@ -6,9 +6,12 @@ import {
   splitHandler,
   pdfToTxtHandler,
   pdfToDocxHandler,
+  ocrImageToTextHandler
 } from "../controllers/pdfController.js";
+import multer from "multer";      
 
 const router = express.Router();
+const upload = multer({ dest: "uploads/" });
 
 // Handle Multer (fileFilter/size) errors nicely
 function multerErrorGuard(handler) {
@@ -51,5 +54,7 @@ router.post("/pdf-to-docx", uploadPdf.single("file"), (req, res, next) => {
   }
   return pdfToDocxHandler(req, res, next);
 });
+
+router.post("/ocr", upload.any(), ocrImageToTextHandler);
 
 export default router;
